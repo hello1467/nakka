@@ -96,13 +96,14 @@ let birdWing = 0;
 
 function spawnObstacle() {
     const type = OBSTACLE_TYPES[Math.floor(Math.random()*OBSTACLE_TYPES.length)];
-    return {
-        type,
-        x: canvas.width,
-        w: type === "bird" ? 45 : 35,
-        h: type === "bigCactus" ? 80 : type === "rock" ? 40 : 50,
-        y: type === "bird" ? -70 : 0
-    };
+   return {
+    type,
+    x: canvas.width,
+    w: type === "bird" ? 70 : 35,   // 🔺 wider bird
+    h: type === "bird" ? 45 : (type === "bigCactus" ? 80 : type === "rock" ? 40 : 50),
+    y: type === "bird" ? -85 : 0    // 🔺 slightly higher
+};
+
 }
 
 // ================= POWER-UP =================
@@ -357,3 +358,4 @@ foxImg.onload=()=>{
 
 </body>
 </html>
+
