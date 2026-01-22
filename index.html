@@ -34,12 +34,12 @@ addEventListener("resize", resize);
 
 // ================= IMAGES =================
 const foxDayImg = new Image();
-foxDayImg.src = "fox.jpg";
+foxDayImg.src = "fox.jpg";          // DAY FOX (JPG)
 
 const foxNightImg = new Image();
-foxNightImg.src = "fox_night.jpg";
+foxNightImg.src = "fox_night.png";  // NIGHT FOX (PNG)
 
-// ================= AUDIO =================
+// ================= AUDIO (MPEG ONLY) =================
 const jumpSound = new Audio("jump.mpeg");
 jumpSound.volume = 0.5;
 
@@ -236,7 +236,7 @@ function drawRock(x, y) {
 
 function drawBird(x, y) {
     const wing = Math.sin(birdWing) * 10;
-    ctx.fillStyle = "#f9a825";
+    ctx.fillStyle = "#f9a825"; // dark yellow
     ctx.beginPath();
     ctx.ellipse(x + 22, y + 20, 12, 8, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -356,4 +356,3 @@ foxDayImg.onload = () => {
 
 </body>
 </html>
-
