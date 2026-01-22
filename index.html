@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Fox Runner (Mobile + Desktop)</title>
+<title>Fox Runner – Advanced</title>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
@@ -14,9 +14,7 @@ html, body {
     background: #2e7d32;
     touch-action: manipulation;
 }
-canvas {
-    display: block;
-}
+canvas { display: block; }
 </style>
 </head>
 <body>
@@ -29,25 +27,20 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
 function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
 }
 resize();
-window.addEventListener("resize", resize);
+addEventListener("resize", resize);
 
-// ================= LOAD IMAGE =================
+// ================= ASSETS =================
 const foxImg = new Image();
 foxImg.src = "fox.jpg";
 
-// ================= LOAD AUDIO =================
-const jumpSound = new Audio();
-jumpSound.src = "jump.mpeg";
-jumpSound.type = "audio/mpeg";
+const jumpSound = new Audio("jump.mpeg");
 jumpSound.volume = 0.6;
 
-const gameOverSound = new Audio();
-gameOverSound.src = "gameover.mpeg"; // 🎵 NEW MUSIC
-gameOverSound.type = "audio/mpeg";
+const gameOverSound = new Audio("gameover.mpeg");
 gameOverSound.volume = 0.7;
 
 // ================= AUDIO UNLOCK =================
@@ -61,15 +54,13 @@ function unlockAudio() {
 
 // ================= GAME STATE =================
 let gravity = 0.8;
-let speed = 5.5;
+let speed = 5;
 let score = 0;
 let gameOver = false;
-let gameOverMusicPlayed = false; // ⭐ IMPORTANT
+let gameOverMusicPlayed = false;
 
 // ================= GROUND =================
-function groundY() {
-    return canvas.height * 0.75;
-}
+const groundY = () => canvas.height * 0.75;
 
 // ================= FOX =================
 const fox = {
@@ -81,21 +72,30 @@ const fox = {
     jumping: false
 };
 
-// ================= OBSTACLE =================
-const obstacle = {
-    x: canvas.width,
-    w: 30,
-    h: 45
-};
+// ================= OBSTACLES =================
+const obstacleTypes = [
+    { w: 30, h: 45, yOffset: 0, color: "#5d4037" },     // small cactus
+    { w: 45, h: 70, yOffset: 0, color: "#4e342e" },     // big cactus
+    { w: 40, h: 30, yOffset: -60, color: "#263238" }   // bird
+];
 
-// ================= JUMP FUNCTION =================
+let obstacle = createObstacle();
+
+function createObstacle() {
+    const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
+    return {
+        x: canvas.width,
+        ...type
+    };
+}
+
+// ================= INPUT =================
 function jump() {
     unlockAudio();
 
     if (!fox.jumping && !gameOver) {
         fox.vy = -17;
         fox.jumping = true;
-
         jumpSound.currentTime = 0;
         jumpSound.play();
     }
@@ -103,16 +103,21 @@ function jump() {
     if (gameOver) location.reload();
 }
 
-// ================= INPUT =================
-window.addEventListener("keydown", e => {
+addEventListener("keydown", e => {
     if (e.code === "Space" || e.code === "ArrowUp") jump();
 });
-
-window.addEventListener("mousedown", jump);
-window.addEventListener("touchstart", e => {
+addEventListener("mousedown", jump);
+addEventListener("touchstart", e => {
     e.preventDefault();
     jump();
 }, { passive: false });
+
+// ================= DIFFICULTY =================
+function updateDifficulty() {
+    if (score > 900) speed = 11;
+    else if (score > 500) speed = 9;
+    else if (score > 200) speed = 7;
+}
 
 // ================= UPDATE =================
 function update() {
@@ -129,12 +134,12 @@ function update() {
 
     obstacle.x -= speed;
     if (obstacle.x < -obstacle.w) {
-        obstacle.x = canvas.width + Math.random() * 350;
+        obstacle = createObstacle();
         score++;
-        speed += 0.1;
+        updateDifficulty();
     }
 
-    const oy = groundY() - obstacle.h;
+    const oy = groundY() - obstacle.h + obstacle.yOffset;
     if (
         fox.x + 10 < obstacle.x + obstacle.w &&
         fox.x + fox.w - 10 > obstacle.x &&
@@ -147,7 +152,6 @@ function update() {
 
 // ================= DRAW =================
 function draw() {
-    // background
     ctx.fillStyle = "#66bb6a";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -166,8 +170,8 @@ function draw() {
     ctx.fillRect(0, groundY(), canvas.width, canvas.height);
 
     // obstacle
-    const oy = groundY() - obstacle.h;
-    ctx.fillStyle = "#5d4037";
+    const oy = groundY() - obstacle.h + obstacle.yOffset;
+    ctx.fillStyle = obstacle.color;
     ctx.fillRect(obstacle.x, oy, obstacle.w, obstacle.h);
 
     // fox
@@ -178,7 +182,7 @@ function draw() {
     ctx.font = "22px Arial";
     ctx.fillText("Score: " + score, 20, 40);
 
-    // GAME OVER SCREEN + MUSIC
+    // game over
     if (gameOver) {
         if (!gameOverMusicPlayed) {
             gameOverSound.currentTime = 0;
@@ -196,24 +200,22 @@ function draw() {
         ctx.font = "20px Arial";
         ctx.fillStyle = "#fff";
         ctx.fillText(
-            "Tap or Press SPACE to Restart",
-            canvas.width / 2 - 150,
+            "Tap / SPACE to Restart",
+            canvas.width / 2 - 140,
             canvas.height / 2 + 35
         );
     }
 }
 
-// ================= GAME LOOP =================
+// ================= LOOP =================
 function loop() {
     update();
     draw();
     requestAnimationFrame(loop);
 }
 
-// ================= START =================
 foxImg.onload = () => {
     fox.y = groundY() - fox.h;
-    obstacle.x = canvas.width;
     loop();
 };
 </script>
