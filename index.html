@@ -32,15 +32,22 @@ function resize() {
 resize();
 addEventListener("resize", resize);
 
-// ================= ASSETS =================
-const foxImg = new Image();
-foxImg.src = "fox.jpg";
+// ================= IMAGES =================
+const foxDayImg = new Image();
+foxDayImg.src = "fox.jpg";
 
+const foxNightImg = new Image();
+foxNightImg.src = "fox_night.jpg";
+
+// ================= AUDIO =================
 const jumpSound = new Audio("jump.mpeg");
 jumpSound.volume = 0.5;
 
 const gameOverSound = new Audio("gameover.mpeg");
 gameOverSound.volume = 0.7;
+
+const nightSound = new Audio("night.mpeg");
+nightSound.volume = 0.6;
 
 // ================= AUDIO UNLOCK =================
 let audioUnlocked = false;
@@ -48,6 +55,7 @@ function unlockAudio() {
     if (audioUnlocked) return;
     jumpSound.play().then(()=>jumpSound.pause());
     gameOverSound.play().then(()=>gameOverSound.pause());
+    nightSound.play().then(()=>nightSound.pause());
     audioUnlocked = true;
 }
 
@@ -59,9 +67,26 @@ let score = 0;
 let gameOver = false;
 let gameOverPlayed = false;
 
-// ================= DAY / NIGHT =================
-let timeOfDay = 0;
-let daySpeed = 0.00015; // faster cycle
+// ================= DAY / NIGHT BY SCORE =================
+let isNight = false;
+let lastPhase = "day";
+
+function updateDayNightByScore() {
+    let newPhase = "day";
+
+    if (score >= 800 && score < 1600) newPhase = "night";
+    else if (score >= 1600 && score < 2400) newPhase = "day";
+    else if (score >= 2400) newPhase = "night";
+
+    if (newPhase !== lastPhase) {
+        if (newPhase === "night") {
+            nightSound.currentTime = 0;
+            nightSound.play();
+        }
+        lastPhase = newPhase;
+    }
+    isNight = newPhase === "night";
+}
 
 // ================= GROUND =================
 const groundY = () => canvas.height * 0.75;
@@ -79,7 +104,7 @@ const fox = {
 };
 
 // ================= CLOUDS =================
-const clouds = Array.from({length: 6}, () => ({
+const clouds = Array.from({ length: 6 }, () => ({
     x: Math.random() * canvas.width,
     y: Math.random() * canvas.height * 0.3,
     size: 50 + Math.random() * 40,
@@ -105,21 +130,15 @@ function spawnObstacle() {
     };
 }
 
-// ================= POWER-UP =================
+// ================= SHIELD =================
 let shieldPower = null;
-
 function spawnShield() {
-    shieldPower = {
-        x: canvas.width,
-        y: groundY() - 110,
-        r: 16
-    };
+    shieldPower = { x: canvas.width, y: groundY() - 110, r: 16 };
 }
 
 // ================= INPUT =================
 function jump() {
     unlockAudio();
-
     if (!fox.jumping && !gameOver) {
         fox.vy = -17;
         fox.jumping = true;
@@ -144,9 +163,7 @@ function update() {
 
     score++;
     speed = baseSpeed + score * 0.002;
-
-    timeOfDay += daySpeed;
-    if (timeOfDay > 1) timeOfDay = 0;
+    updateDayNightByScore();
 
     fox.vy += gravity;
     fox.y += fox.vy;
@@ -174,9 +191,7 @@ function update() {
         if (fox.shield) {
             fox.shield = false;
             obstacle.x = -200;
-        } else {
-            gameOver = true;
-        }
+        } else gameOver = true;
     }
 
     if (shieldPower) {
@@ -196,18 +211,13 @@ function update() {
     treeBack -= speed * 0.15;
     treeMid -= speed * 0.3;
     treeFront -= speed * 0.45;
-
     birdWing += 0.2;
 }
 
 // ================= DRAW HELPERS =================
-function drawCactus(x, y, h, arms) {
+function drawCactus(x, y, h) {
     ctx.fillStyle = "#33691e";
     ctx.fillRect(x, y, h * 0.3, h);
-    if (arms) {
-        ctx.fillRect(x - h * 0.2, y + h * 0.3, h * 0.2, h * 0.25);
-        ctx.fillRect(x + h * 0.3, y + h * 0.4, h * 0.2, h * 0.25);
-    }
     ctx.beginPath();
     ctx.arc(x + h * 0.15, y, h * 0.15, 0, Math.PI * 2);
     ctx.fill();
@@ -225,8 +235,7 @@ function drawRock(x, y) {
 }
 
 function drawBird(x, y) {
-    const wingOffset = Math.sin(birdWing) * 10;
-
+    const wing = Math.sin(birdWing) * 10;
     ctx.fillStyle = "#f9a825";
     ctx.beginPath();
     ctx.ellipse(x + 22, y + 20, 12, 8, 0, 0, Math.PI * 2);
@@ -234,32 +243,21 @@ function drawBird(x, y) {
 
     ctx.strokeStyle = "#f9a825";
     ctx.lineWidth = 3;
-
     ctx.beginPath();
     ctx.moveTo(x + 10, y + 20);
-    ctx.lineTo(x, y + 20 + wingOffset);
+    ctx.lineTo(x, y + 20 + wing);
     ctx.stroke();
-
     ctx.beginPath();
     ctx.moveTo(x + 34, y + 20);
-    ctx.lineTo(x + 44, y + 20 + wingOffset);
+    ctx.lineTo(x + 44, y + 20 + wing);
     ctx.stroke();
-
     ctx.lineWidth = 1;
 }
 
 // ================= DRAW =================
 function draw() {
-    const night = Math.abs(timeOfDay - 0.5) * 2;
-    ctx.fillStyle = `rgb(${40 + 80 * night}, ${90 + 80 * night}, ${160 + 60 * night})`;
+    ctx.fillStyle = isNight ? "#0d1b2a" : "#6ec6ff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    if (night > 0.6) {
-        ctx.fillStyle = "#fff";
-        for (let i = 0; i < 40; i++) {
-            ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height * 0.5, 2, 2);
-        }
-    }
 
     ctx.fillStyle = "rgba(255,255,255,0.8)";
     clouds.forEach(c => {
@@ -301,8 +299,8 @@ function draw() {
     ctx.fillRect(0, groundY(), canvas.width, canvas.height);
 
     const oy = groundY() - obstacle.h + obstacle.y;
-    if (obstacle.type === "smallCactus") drawCactus(obstacle.x, oy, obstacle.h, true);
-    else if (obstacle.type === "bigCactus") drawCactus(obstacle.x, oy, obstacle.h * 1.2, true);
+    if (obstacle.type === "smallCactus") drawCactus(obstacle.x, oy, obstacle.h);
+    else if (obstacle.type === "bigCactus") drawCactus(obstacle.x, oy, obstacle.h * 1.2);
     else if (obstacle.type === "rock") drawRock(obstacle.x, oy + obstacle.h - 30);
     else drawBird(obstacle.x, oy);
 
@@ -313,6 +311,7 @@ function draw() {
         ctx.stroke();
     }
 
+    const foxImg = isNight ? foxNightImg : foxDayImg;
     ctx.drawImage(foxImg, fox.x, fox.y, fox.w, fox.h);
 
     if (fox.shield) {
@@ -349,7 +348,7 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
-foxImg.onload = () => {
+foxDayImg.onload = () => {
     fox.y = groundY() - fox.h;
     loop();
 };
@@ -357,4 +356,3 @@ foxImg.onload = () => {
 
 </body>
 </html>
-
