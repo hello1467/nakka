@@ -12,7 +12,7 @@ html, body {
     padding: 0;
     overflow: hidden;
     background: #2e7d32;
-    touch-action: manipulation; /* important for mobile */
+    touch-action: manipulation;
 }
 canvas {
     display: block;
@@ -39,17 +39,23 @@ window.addEventListener("resize", resize);
 const foxImg = new Image();
 foxImg.src = "fox.jpg";
 
-// ================= LOAD MPEG AUDIO =================
+// ================= LOAD AUDIO =================
 const jumpSound = new Audio();
 jumpSound.src = "jump.mpeg";
 jumpSound.type = "audio/mpeg";
 jumpSound.volume = 0.6;
+
+const gameOverSound = new Audio();
+gameOverSound.src = "gameover.mpeg"; // 🎵 NEW MUSIC
+gameOverSound.type = "audio/mpeg";
+gameOverSound.volume = 0.7;
 
 // ================= AUDIO UNLOCK =================
 let audioUnlocked = false;
 function unlockAudio() {
     if (audioUnlocked) return;
     jumpSound.play().then(() => jumpSound.pause());
+    gameOverSound.play().then(() => gameOverSound.pause());
     audioUnlocked = true;
 }
 
@@ -58,6 +64,7 @@ let gravity = 0.8;
 let speed = 5.5;
 let score = 0;
 let gameOver = false;
+let gameOverMusicPlayed = false; // ⭐ IMPORTANT
 
 // ================= GROUND =================
 function groundY() {
@@ -83,14 +90,16 @@ const obstacle = {
 
 // ================= JUMP FUNCTION =================
 function jump() {
+    unlockAudio();
+
     if (!fox.jumping && !gameOver) {
         fox.vy = -17;
         fox.jumping = true;
 
-        unlockAudio();
         jumpSound.currentTime = 0;
         jumpSound.play();
     }
+
     if (gameOver) location.reload();
 }
 
@@ -169,8 +178,14 @@ function draw() {
     ctx.font = "22px Arial";
     ctx.fillText("Score: " + score, 20, 40);
 
-    // game over
+    // GAME OVER SCREEN + MUSIC
     if (gameOver) {
+        if (!gameOverMusicPlayed) {
+            gameOverSound.currentTime = 0;
+            gameOverSound.play();
+            gameOverMusicPlayed = true;
+        }
+
         ctx.fillStyle = "rgba(0,0,0,0.6)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
