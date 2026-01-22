@@ -227,12 +227,12 @@ function drawRock(x, y) {
 function drawBird(x, y) {
     const wingOffset = Math.sin(birdWing) * 10;
 
-    ctx.fillStyle = "#263238";
+    ctx.fillStyle = "#f9a825";
     ctx.beginPath();
     ctx.ellipse(x + 22, y + 20, 12, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = "#263238";
+    ctx.strokeStyle = "#f9a825";
     ctx.lineWidth = 3;
 
     ctx.beginPath();
@@ -357,3 +357,4 @@ foxImg.onload = () => {
 
 </body>
 </html>
+
