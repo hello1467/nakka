@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Fox Runner – Advanced</title>
+<title>Fox Runner – Ultimate</title>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
@@ -11,7 +11,7 @@ html, body {
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background: #2e7d32;
+    background: #000;
     touch-action: manipulation;
 }
 canvas { display: block; }
@@ -38,7 +38,7 @@ const foxImg = new Image();
 foxImg.src = "fox.jpg";
 
 const jumpSound = new Audio("jump.mpeg");
-jumpSound.volume = 0.6;
+jumpSound.volume = 0.5;
 
 const gameOverSound = new Audio("gameover.mpeg");
 gameOverSound.volume = 0.7;
@@ -47,17 +47,22 @@ gameOverSound.volume = 0.7;
 let audioUnlocked = false;
 function unlockAudio() {
     if (audioUnlocked) return;
-    jumpSound.play().then(() => jumpSound.pause());
-    gameOverSound.play().then(() => gameOverSound.pause());
+    jumpSound.play().then(()=>jumpSound.pause());
+    gameOverSound.play().then(()=>gameOverSound.pause());
     audioUnlocked = true;
 }
 
 // ================= GAME STATE =================
 let gravity = 0.8;
-let speed = 5;
+let baseSpeed = 5;
+let speed = baseSpeed;
 let score = 0;
 let gameOver = false;
-let gameOverMusicPlayed = false;
+let gameOverPlayed = false;
+
+// ================= DAY / NIGHT =================
+let timeOfDay = 0; // 0–1
+let daySpeed = 0.00005;
 
 // ================= GROUND =================
 const groundY = () => canvas.height * 0.75;
@@ -69,23 +74,46 @@ const fox = {
     w: 90,
     h: 95,
     vy: 0,
-    jumping: false
+    jumping: false,
+    shield: false,
+    shieldTime: 0
 };
+
+// ================= CLOUDS =================
+const clouds = Array.from({length: 5}, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height * 0.3,
+    size: 60 + Math.random() * 40
+}));
+
+// ================= TREES =================
+let treeOffset1 = 0;
+let treeOffset2 = 0;
 
 // ================= OBSTACLES =================
 const obstacleTypes = [
-    { w: 30, h: 45, yOffset: 0, color: "#5d4037" },     // small cactus
-    { w: 45, h: 70, yOffset: 0, color: "#4e342e" },     // big cactus
-    { w: 40, h: 30, yOffset: -60, color: "#263238" }   // bird
+    { w: 30, h: 45, y: 0 },
+    { w: 45, h: 70, y: 0 },
+    { w: 40, h: 30, y: -60 }
 ];
 
-let obstacle = createObstacle();
+let obstacle = spawnObstacle();
 
-function createObstacle() {
-    const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
+function spawnObstacle() {
+    const t = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
     return {
         x: canvas.width,
-        ...type
+        ...t
+    };
+}
+
+// ================= POWER-UP =================
+let shieldPower = null;
+
+function spawnShield() {
+    shieldPower = {
+        x: canvas.width,
+        y: groundY() - 100
     };
 }
 
@@ -99,7 +127,6 @@ function jump() {
         jumpSound.currentTime = 0;
         jumpSound.play();
     }
-
     if (gameOver) location.reload();
 }
 
@@ -110,19 +137,20 @@ addEventListener("mousedown", jump);
 addEventListener("touchstart", e => {
     e.preventDefault();
     jump();
-}, { passive: false });
-
-// ================= DIFFICULTY =================
-function updateDifficulty() {
-    if (score > 900) speed = 11;
-    else if (score > 500) speed = 9;
-    else if (score > 200) speed = 7;
-}
+}, { passive:false });
 
 // ================= UPDATE =================
 function update() {
     if (gameOver) return;
 
+    score++;
+    speed = baseSpeed + score * 0.002;
+
+    // Day/Night
+    timeOfDay += daySpeed;
+    if (timeOfDay > 1) timeOfDay = 0;
+
+    // Fox physics
     fox.vy += gravity;
     fox.y += fox.vy;
 
@@ -132,78 +160,138 @@ function update() {
         fox.jumping = false;
     }
 
-    obstacle.x -= speed;
-    if (obstacle.x < -obstacle.w) {
-        obstacle = createObstacle();
-        score++;
-        updateDifficulty();
+    // Shield timer
+    if (fox.shield) {
+        fox.shieldTime--;
+        if (fox.shieldTime <= 0) fox.shield = false;
     }
 
-    const oy = groundY() - obstacle.h + obstacle.yOffset;
+    // Obstacle
+    obstacle.x -= speed;
+    if (obstacle.x < -obstacle.w) {
+        obstacle = spawnObstacle();
+        if (Math.random() < 0.15 && !shieldPower) spawnShield();
+    }
+
+    const oy = groundY() - obstacle.h + obstacle.y;
     if (
         fox.x + 10 < obstacle.x + obstacle.w &&
         fox.x + fox.w - 10 > obstacle.x &&
-        fox.y + 5 < oy + obstacle.h &&
+        fox.y < oy + obstacle.h &&
         fox.y + fox.h > oy
     ) {
-        gameOver = true;
+        if (fox.shield) {
+            fox.shield = false;
+            obstacle.x = -100;
+        } else {
+            gameOver = true;
+        }
     }
+
+    // Shield power
+    if (shieldPower) {
+        shieldPower.x -= speed;
+        if (
+            fox.x < shieldPower.x + 30 &&
+            fox.x + fox.w > shieldPower.x &&
+            fox.y < shieldPower.y + 30
+        ) {
+            fox.shield = true;
+            fox.shieldTime = 300;
+            shieldPower = null;
+        }
+        if (shieldPower && shieldPower.x < -30) shieldPower = null;
+    }
+
+    // Parallax
+    treeOffset1 -= speed * 0.2;
+    treeOffset2 -= speed * 0.4;
 }
 
 // ================= DRAW =================
 function draw() {
-    ctx.fillStyle = "#66bb6a";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Sky (day/night)
+    const night = Math.abs(timeOfDay - 0.5) * 2;
+    ctx.fillStyle = `rgb(${30 + 80*night}, ${80 + 80*night}, ${150 + 50*night})`;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    // trees
-    for (let i = 0; i < canvas.width; i += 220) {
-        ctx.fillStyle = "#1b5e20";
+    // Clouds
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    clouds.forEach(c=>{
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.size, 0, Math.PI*2);
+        ctx.fill();
+        c.x -= speed*0.2;
+        if (c.x < -100) c.x = canvas.width + 100;
+    });
+
+    // Trees back
+    ctx.fillStyle = "#1b5e20";
+    for(let i=treeOffset1;i<canvas.width;i+=200){
         ctx.beginPath();
         ctx.moveTo(i, groundY());
-        ctx.lineTo(i + 110, groundY() - 190);
-        ctx.lineTo(i + 220, groundY());
+        ctx.lineTo(i+100, groundY()-150);
+        ctx.lineTo(i+200, groundY());
         ctx.fill();
     }
 
-    // ground
+    // Trees front
+    ctx.fillStyle = "#0b3d0b";
+    for(let i=treeOffset2;i<canvas.width;i+=150){
+        ctx.beginPath();
+        ctx.moveTo(i, groundY());
+        ctx.lineTo(i+75, groundY()-180);
+        ctx.lineTo(i+150, groundY());
+        ctx.fill();
+    }
+
+    // Ground
     ctx.fillStyle = "#2e7d32";
     ctx.fillRect(0, groundY(), canvas.width, canvas.height);
 
-    // obstacle
-    const oy = groundY() - obstacle.h + obstacle.yOffset;
-    ctx.fillStyle = obstacle.color;
+    // Obstacle
+    const oy = groundY() - obstacle.h + obstacle.y;
+    ctx.fillStyle = "#5d4037";
     ctx.fillRect(obstacle.x, oy, obstacle.w, obstacle.h);
 
-    // fox
+    // Shield power
+    if (shieldPower) {
+        ctx.strokeStyle = "#00e5ff";
+        ctx.beginPath();
+        ctx.arc(shieldPower.x+15, shieldPower.y+15, 15, 0, Math.PI*2);
+        ctx.stroke();
+    }
+
+    // Fox
     ctx.drawImage(foxImg, fox.x, fox.y, fox.w, fox.h);
 
-    // score
+    // Shield effect
+    if (fox.shield) {
+        ctx.strokeStyle = "#00e5ff";
+        ctx.beginPath();
+        ctx.arc(fox.x+fox.w/2, fox.y+fox.h/2, fox.w/2+5, 0, Math.PI*2);
+        ctx.stroke();
+    }
+
+    // Score
     ctx.fillStyle = "#fff";
-    ctx.font = "22px Arial";
+    ctx.font = "20px Arial";
     ctx.fillText("Score: " + score, 20, 40);
 
-    // game over
+    // Game over
     if (gameOver) {
-        if (!gameOverMusicPlayed) {
-            gameOverSound.currentTime = 0;
+        if (!gameOverPlayed) {
             gameOverSound.play();
-            gameOverMusicPlayed = true;
+            gameOverPlayed = true;
         }
-
         ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.fillStyle = "#ff5252";
-        ctx.font = "42px Arial";
-        ctx.fillText("GAME OVER", canvas.width / 2 - 140, canvas.height / 2);
-
-        ctx.font = "20px Arial";
-        ctx.fillStyle = "#fff";
-        ctx.fillText(
-            "Tap / SPACE to Restart",
-            canvas.width / 2 - 140,
-            canvas.height / 2 + 35
-        );
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle="#ff5252";
+        ctx.font="42px Arial";
+        ctx.fillText("GAME OVER", canvas.width/2-140, canvas.height/2);
+        ctx.font="20px Arial";
+        ctx.fillStyle="#fff";
+        ctx.fillText("Tap / SPACE to Restart", canvas.width/2-150, canvas.height/2+35);
     }
 }
 
