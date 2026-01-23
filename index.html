@@ -86,11 +86,24 @@ function updateDayNightByScore() {
     else if (score >= 2400) newPhase = "night";
 
     if (newPhase !== lastPhase) {
-        if (newPhase === "night" && audioUnlocked) {
-            nightSound.pause();
-            nightSound.currentTime = 0;
-            nightSound.play().catch(() => {});
-        }
+       function jump() {
+    unlockAudio();
+
+    if (!fox.jumping && !gameOver) {
+        fox.vy = -17;
+        fox.jumping = true;
+
+        // 🔊 DAY vs NIGHT jump sound
+        const soundToPlay = isNight ? nightSound : jumpSound;
+
+        soundToPlay.pause();
+        soundToPlay.currentTime = 0;
+        soundToPlay.play().catch(() => {});
+    }
+
+    if (gameOver) location.reload();
+}
+
         lastPhase = newPhase;
     }
 
@@ -367,5 +380,6 @@ foxDayImg.onload = () => {
 
 </body>
 </html>
+
 
 
