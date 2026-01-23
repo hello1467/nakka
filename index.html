@@ -1,1 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fox Runner – Ultimate</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #000;
+    touch-action: manipulation;
+}
+canvas { display: block; }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<script>
+// ================= CANVAS =================
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+}
+resize();
+addEventListener("resize", resize);
+
+// ================= IMAGES =================
+const foxDayImg = new Image();
+foxDayImg.src = "fox.jpg";
+
+const foxNightImg = new Image();
+foxNightImg.src = "fox_night.png";
+
+// ================= AUDIO (MPEG ONLY) =================
+const jumpSound = new Audio("jump.mpeg");
+jumpSound.volume = 0.5;
+
+const gameOverSound = new Audio("gameover.mpeg");
+gameOverSound.volume = 0.7;
+
+const nightSound = new Audio("night.mpeg");
+nightSound.volume = 0.6;
+
+// ================= AUDIO UNLOCK (FIXED) =================
+let audioUnlocked = false;
+function unlockAudio() {
+    if (audioUnlocked) return;
+
+    [jumpSound, gameOverSound, nightSound].forEach(sound => {
+        sound.muted = true;
+        sound.play().then(() => {
+            sound.pause();
+            sound.currentTime = 0;
+            sound.muted = false;
+        }).catch(() => {});
+    });
+
+    audioUnlocked = true;
+}
+
+// ================= GAME STATE =================
+let gravity = 0.8;
+let baseSpeed = 5;
+let speed = baseSpeed;
+let score = 0;
+let gameOver = false;
+let gameOverPlayed = false;
+
+// ================= DAY / NIGHT BY SCORE =================
+let isNight = false;
+let lastPhase = "day";
+
+function updateDayNightByScore() {
+    let newPhase = "day";
+
+    if (score >= 800 && score < 1600) newPhase = "night";
+    else if (score >= 1600 && score < 2400) newPhase = "day";
+    else if (score >= 2400) newPhase = "night";
+
+    if (newPhase !== lastPhase) {
+        if (newPhase === "night" && audioUnlocked) {
+            nightSound.pause();
+            nightSound.currentTime = 0;
+            nightSound.play().catch(() => {});
+        }
+        lastPhase = newPhase;
+    }
+
+    isNight = newPhase === "night";
+}
+
+// ================= GROUND =================
+const groundY = () => canvas.height * 0.75;
+
+// ================= FOX =================
+const fox = {
+    x: canvas.width * 0.15,
+    y: 0,
+    w: 90,
+    h: 95,
+    vy: 0,
+    jumping: false,
+    shield: false,
+    shieldTime: 0
+};
+
+// ================= CLOUDS =================
+const clouds = Array.from({ length: 6 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height * 0.3,
+    size: 50 + Math.random() * 40,
+    speed: 0.2 + Math.random() * 0.3
+}));
+
+// ================= PARALLAX TREES =================
+let treeBack = 0, treeMid = 0, treeFront = 0;
+
+// ================= OBSTACLES =================
+const OBSTACLE_TYPES = ["smallCactus", "bigCactus", "rock", "bird"];
+let birdWing = 0;
+let obstacle = spawnObstacle();
+
+function spawnObstacle() {
+    const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+    return {
+        type,
+        x: canvas.width,
+        w: type === "bird" ? 45 : (type === "rock" ? 40 : 35),
+        h: type === "bird" ? 40 : (type === "bigCactus" ? 80 : type === "rock" ? 40 : 50),
+        y: type === "bird" ? -55 : 0
+    };
+}
+
+// ================= SHIELD =================
+let shieldPower = null;
+function spawnShield() {
+    shieldPower = { x: canvas.width, y: groundY() - 110, r: 16 };
+}
+
+// ================= INPUT =================
+function jump() {
+    unlockAudio();
+
+    if (!fox.jumping && !gameOver) {
+        fox.vy = -17;
+        fox.jumping = true;
+        jumpSound.currentTime = 0;
+        jumpSound.play().catch(() => {});
+    }
+
+    if (gameOver) location.reload();
+}
+
+addEventListener("keydown", e => {
+    if (e.code === "Space" || e.code === "ArrowUp") jump();
+});
+addEventListener("mousedown", jump);
+addEventListener("touchstart", e => {
+    e.preventDefault();
+    jump();
+}, { passive:false });
+
+// ================= UPDATE =================
+function update() {
+    if (gameOver) return;
+
+    score++;
+    speed = baseSpeed + score * 0.002;
+    updateDayNightByScore();
+
+    fox.vy += gravity;
+    fox.y += fox.vy;
+    if (fox.y >= groundY() - fox.h) {
+        fox.y = groundY() - fox.h;
+        fox.vy = 0;
+        fox.jumping = false;
+    }
+
+    if (fox.shield && --fox.shieldTime <= 0) fox.shield = false;
+
+    obstacle.x -= speed;
+    if (obstacle.x < -100) {
+        obstacle = spawnObstacle();
+        if (Math.random() < 0.18 && !shieldPower) spawnShield();
+    }
+
+    const oy = groundY() - obstacle.h + obstacle.y;
+    if (
+        fox.x + 12 < obstacle.x + obstacle.w &&
+        fox.x + fox.w - 12 > obstacle.x &&
+        fox.y < oy + obstacle.h &&
+        fox.y + fox.h > oy
+    ) {
+        if (fox.shield) {
+            fox.shield = false;
+            obstacle.x = -200;
+        } else gameOver = true;
+    }
+
+    if (shieldPower) {
+        shieldPower.x -= speed;
+        if (
+            fox.x < shieldPower.x + shieldPower.r * 2 &&
+            fox.x + fox.w > shieldPower.x &&
+            fox.y < shieldPower.y + shieldPower.r * 2
+        ) {
+            fox.shield = true;
+            fox.shieldTime = 320;
+            shieldPower = null;
+        }
+        if (shieldPower && shieldPower.x < -40) shieldPower = null;
+    }
+
+    treeBack -= speed * 0.15;
+    treeMid -= speed * 0.3;
+    treeFront -= speed * 0.45;
+    birdWing += 0.2;
+}
+
+// ================= DRAW HELPERS =================
+function drawCactus(x, y, h) {
+    ctx.fillStyle = "#33691e";
+    ctx.fillRect(x, y, h * 0.3, h);
+    ctx.beginPath();
+    ctx.arc(x + h * 0.15, y, h * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawRock(x, y) {
+    ctx.fillStyle = "#5d4037";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 40, y + 10);
+    ctx.lineTo(x + 30, y + 35);
+    ctx.lineTo(x + 5, y + 30);
+    ctx.closePath();
+    ctx.fill();
+}
+
+function drawBird(x, y) {
+    const wing = Math.sin(birdWing) * 10;
+    ctx.fillStyle = "#f9a825";
+    ctx.beginPath();
+    ctx.ellipse(x + 22, y + 20, 12, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#f9a825";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x + 10, y + 20);
+    ctx.lineTo(x, y + 20 + wing);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 34, y + 20);
+    ctx.lineTo(x + 44, y + 20 + wing);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+}
+
+// ================= DRAW =================
+function draw() {
+    ctx.fillStyle = isNight ? "#0d1b2a" : "#6ec6ff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    clouds.forEach(c => {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        c.x -= c.speed;
+        if (c.x < -100) c.x = canvas.width + 100;
+    });
+
+    ctx.fillStyle = "#2e7d32";
+    for (let i = treeBack; i < canvas.width; i += 260) {
+        ctx.beginPath();
+        ctx.moveTo(i, groundY());
+        ctx.lineTo(i + 130, groundY() - 140);
+        ctx.lineTo(i + 260, groundY());
+        ctx.fill();
+    }
+
+    ctx.fillStyle = "#1b5e20";
+    for (let i = treeMid; i < canvas.width; i += 200) {
+        ctx.beginPath();
+        ctx.moveTo(i, groundY());
+        ctx.lineTo(i + 100, groundY() - 180);
+        ctx.lineTo(i + 200, groundY());
+        ctx.fill();
+    }
+
+    ctx.fillStyle = "#0b3d0b";
+    for (let i = treeFront; i < canvas.width; i += 150) {
+        ctx.beginPath();
+        ctx.moveTo(i, groundY());
+        ctx.lineTo(i + 75, groundY() - 210);
+        ctx.lineTo(i + 150, groundY());
+        ctx.fill();
+    }
+
+    ctx.fillStyle = "#2e7d32";
+    ctx.fillRect(0, groundY(), canvas.width, canvas.height);
+
+    const oy = groundY() - obstacle.h + obstacle.y;
+    if (obstacle.type === "smallCactus") drawCactus(obstacle.x, oy, obstacle.h);
+    else if (obstacle.type === "bigCactus") drawCactus(obstacle.x, oy, obstacle.h * 1.2);
+    else if (obstacle.type === "rock") drawRock(obstacle.x, oy + obstacle.h - 30);
+    else drawBird(obstacle.x, oy);
+
+    if (shieldPower) {
+        ctx.strokeStyle = "#00e5ff";
+        ctx.beginPath();
+        ctx.arc(shieldPower.x + 16, shieldPower.y + 16, 16, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    const foxImg = isNight ? foxNightImg : foxDayImg;
+    ctx.drawImage(foxImg, fox.x, fox.y, fox.w, fox.h);
+
+    if (fox.shield) {
+        ctx.strokeStyle = "#00e5ff";
+        ctx.beginPath();
+        ctx.arc(fox.x + fox.w / 2, fox.y + fox.h / 2, fox.w / 2 + 6, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "20px Arial";
+    ctx.fillText("Score: " + score, 20, 40);
+
+    if (gameOver) {
+        if (!gameOverPlayed) {
+            gameOverSound.play().catch(()=>{});
+            gameOverPlayed = true;
+        }
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#ff5252";
+        ctx.font = "42px Arial";
+        ctx.fillText("GAME OVER", canvas.width / 2 - 140, canvas.height / 2);
+        ctx.font = "20px Arial";
+        ctx.fillStyle = "#fff";
+        ctx.fillText("Tap / SPACE to Restart", canvas.width / 2 - 150, canvas.height / 2 + 35);
+    }
+}
+
+// ================= LOOP =================
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+foxDayImg.onload = () => {
+    fox.y = groundY() - fox.h;
+    loop();
+};
+</script>
+
+</body>
+</html>
+
 
