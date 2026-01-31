@@ -1,0 +1,75 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Segoe UI", sans-serif;
+}
+
+body {
+    overflow: hidden;
+    background: black;
+}
+
+#game-wrapper {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+}
+
+/* 🌤️ SKY */
+#sky {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(#6ec6ff, #c8f7ff);
+    transition: background 1s ease;
+    z-index: 0;
+}
+
+/* 🌙 NIGHT SKY */
+.night #sky {
+    background: linear-gradient(#0d1b2a, #000814);
+}
+
+/* ⭐ STARS */
+#stars {
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(white 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0;
+    transition: opacity 1s ease;
+    z-index: 1;
+}
+
+.night #stars {
+    opacity: 0.6;
+}
+
+/* 🎮 CANVAS */
+canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+}
+
+/* 🧾 HUD */
+#hud {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 3;
+}
+
+#score {
+    background: rgba(0,0,0,0.6);
+    color: white;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 18px;
+}
+
+/* 🛡️ GLOW */
+.glow {
+    filter: drop-shadow(0 0 10px #00e5ff);
+}
