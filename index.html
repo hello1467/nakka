@@ -10,7 +10,30 @@ html, body {
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background: #000;
+    background: #000;<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fox Runner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+<div id="game-wrapper">
+    <div id="sky"></div>
+    <div id="stars"></div>
+    <canvas id="game"></canvas>
+
+    <div id="hud">
+        <span id="score">0</span>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
+
     touch-action: manipulation;
 }
 canvas { display: block; }
@@ -348,3 +371,4 @@ foxDayImg.onload=()=>{
 
 </body>
 </html>
+
