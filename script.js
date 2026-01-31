@@ -1,7 +1,8 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const scoreEl = document.getElementById("score");
 const wrapper = document.getElementById("game-wrapper");
+const scoreEl = document.getElementById("score");
+const highEl = document.getElementById("highscore");
 
 function resize() {
     canvas.width = innerWidth;
@@ -39,6 +40,9 @@ function unlockAudio() {
 
 /* 🎮 GAME STATE */
 let score = 0;
+let highScore = localStorage.getItem("foxHigh") || 0;
+highEl.textContent = "HI: " + highScore;
+
 let speed = 5;
 let gravity = 0.8;
 let isNight = false;
@@ -58,19 +62,23 @@ const groundY = () => canvas.height * 0.75;
 
 /* 🧱 OBSTACLE */
 let obstacle = spawnObstacle();
+let birdWing = 0;
 
 function spawnObstacle() {
+    const types = ["rock", "cactus", "bird"];
+    const type = types[Math.floor(Math.random() * types.length)];
     return {
+        type,
         x: canvas.width,
-        w: 40,
-        h: 50
+        w: type === "bird" ? 45 : 40,
+        h: type === "bird" ? 40 : 50,
+        y: type === "bird" ? -55 : 0
     };
 }
 
 /* ⬆️ INPUT */
 function jump() {
     unlockAudio();
-
     if (!fox.jumping && !gameOver) {
         fox.vy = -17;
         fox.jumping = true;
@@ -79,13 +87,10 @@ function jump() {
         sound.currentTime = 0;
         sound.play().catch(()=>{});
     }
-
     if (gameOver) location.reload();
 }
 
-addEventListener("keydown", e => {
-    if (e.code === "Space") jump();
-});
+addEventListener("keydown", e => e.code === "Space" && jump());
 addEventListener("touchstart", e => {
     e.preventDefault();
     jump();
@@ -96,15 +101,14 @@ function update() {
     if (gameOver) return;
 
     score++;
-    speed = 5 + score * 0.002;
     scoreEl.textContent = score;
+    speed = 5 + score * 0.002;
 
-    // 🌙 NIGHT SWITCH
-    if (score > 800) {
+    if (score === 800 || score === 2400) {
         isNight = true;
         wrapper.classList.add("night");
     }
-    if (score > 1600) {
+    if (score === 1600) {
         isNight = false;
         wrapper.classList.remove("night");
     }
@@ -119,16 +123,21 @@ function update() {
     }
 
     obstacle.x -= speed;
-    if (obstacle.x < -obstacle.w) obstacle = spawnObstacle();
+    if (obstacle.x < -100) obstacle = spawnObstacle();
 
+    const oy = groundY() - obstacle.h + obstacle.y;
     if (
         fox.x < obstacle.x + obstacle.w &&
         fox.x + fox.w > obstacle.x &&
-        fox.y + fox.h > groundY() - obstacle.h
+        fox.y + fox.h > oy
     ) {
         gameOver = true;
         gameOverSound.play().catch(()=>{});
+        highScore = Math.max(highScore, score);
+        localStorage.setItem("foxHigh", highScore);
     }
+
+    birdWing += 0.2;
 }
 
 /* 🎨 DRAW */
@@ -138,11 +147,19 @@ function draw() {
     ctx.fillStyle = "#2e7d32";
     ctx.fillRect(0, groundY(), canvas.width, canvas.height);
 
-    ctx.fillStyle = "#5d4037";
-    ctx.fillRect(obstacle.x, groundY() - obstacle.h, obstacle.w, obstacle.h);
+    const oy = groundY() - obstacle.h + obstacle.y;
+    if (obstacle.type === "bird") {
+        ctx.fillStyle = "#f9a825";
+        ctx.beginPath();
+        ctx.ellipse(obstacle.x+22, oy+20, 12, 8, 0, 0, Math.PI*2);
+        ctx.fill();
+    } else {
+        ctx.fillStyle = "#5d4037";
+        ctx.fillRect(obstacle.x, oy, obstacle.w, obstacle.h);
+    }
 
-    const img = isNight ? foxNight : foxDay;
-    ctx.drawImage(img, fox.x, fox.y, fox.w, fox.h);
+    const foxImg = isNight ? foxNight : foxDay;
+    ctx.drawImage(foxImg, fox.x, fox.y, fox.w, fox.h);
 }
 
 /* 🔁 LOOP */
